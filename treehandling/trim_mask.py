@@ -4,6 +4,10 @@ import argparse
 
 def apply_mask(alignment_full, maskdata):
 	mask = maskdata[0].seq
+	length_m = len(mask)
+	length_f = alignment_full.get_alignment_length()
+	if length_f != length_m:
+		print("Mask length does not match with that of the alignment!", length_f, length_m)
 	filt = alignment_full[:, :0] #has to be two ranges!
 	for col in range(0,len(mask)):
 		if col % 2500 == 0:
@@ -50,11 +54,12 @@ def find_trim_mask(alignment_full, alignment_trimmed):
 				trim_mask += "-"
 		except IndexError:
 			print(pos)
-	#print("length full: {}, length mask: {}".format(length_f, len(trim_mask)))
+	print("length full: {}, length mask: {}".format(length_f, len(trim_mask)))
 	return trim_mask
 
 
 def main():
+	print("Make a mask file using a --full_alignment file and a --trim_alignment file; or mask a --full_alignment file using a --mask file.")
 	parser = argparse.ArgumentParser(description='How to use argparse')
 	parser.add_argument('-f', '--full_alignment', help='Full alignment (fasta/phylip)', required=True)
 	parser.add_argument('-o', '--outfile', help='Output filename', default="")
