@@ -9,26 +9,31 @@ Entrez.api_key = "ed51bca6c73792ecc692af11ff762b72a008"
 #update at times:
 #ncbi.update_taxonomy_database()
 
-def get_cmap(n, name='Spectral'): #hsv for very divergent data?
-    '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
-    RGB color; the keyword argument name must be a standard mpl colormap name.'''
-    colormap = plt.cm.get_cmap(name, n)
-    rgbcolors = []
-    for i in range(colormap.N):
-        rgb = colormap(i)[:3] # will return rgba, we take only first 3 so we get rgb
-        rgbcolors.append(matplotlib.colors.rgb2hex(rgb))
-    return rgbcolors
+
+def _get_cmap(n, name='Spectral'): #hsv for very divergent data?
+	import matplotlib.pyplot as plt
+	import matplotlib.colors as mcolors
+	'''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
+	RGB color; the keyword argument name must be a standard mpl colormap name.'''
+	colormap = plt.cm.get_cmap(name, n)
+	rgbcolors = []
+	for i in range(colormap.N):
+		rgb = colormap(i)[:3] # will return rgba, we take only first 3 so we get rgb
+		rgbcolors.append(mcolors.rgb2hex(rgb)) #to hex
+		#rgb = [int(256*x) for x in rgb]
+		#rgbcolors.append(rgb) # to 16-bit rgb
+	return rgbcolors
  
 
-def colormap(categories):
-	cmap = get_cmap(len(categories))
+def _colormap(categories, palette):
+	cmap = _get_cmap(len(categories), name=palette)
 	colors = {}
 	for i, X in enumerate(categories):
-	    colors[X] = cmap[i] #hopefully this is still recognized as a color
-	print(colors)
+		colors[X] = cmap[i] #hopefully this is still recognized as a color
+	return colors
 
 
-def find_homedir(directory):
+def _find_homedir(directory):
 	if os.path.isdir("/Users/morpholino/OwnCloud/"):
 		home = "/Users/morpholino/OwnCloud/"
 	elif os.path.isdir("/Volumes/zoliq data/OwnCloud/"):
@@ -38,13 +43,13 @@ def find_homedir(directory):
 
 	if directory == ".":
 		print("changing to default directory")
-		default = "progs/PYTHON/treehandling/"
+		default = "progs/forrest/treehandling/"
 		return home + default
 	else:
 		return home + directory
 
 
-def dictionaries():
+def _dictionaries():
 	#try using taxids to remove the need to translate the lineage into rank
 	global manual_taxids
 	manual_taxids = {2461416: ['Bacteria', 'Terrabacteria group', 'Cyanobacteria/Melainabacteria group', 'Cyanobacteria', 'unclassified Cyanobacteria'],
@@ -119,7 +124,7 @@ def dictionaries():
 						 }
 
 
-def read_table(infile):
+def _read_table(infile):
 	outdict = {}
 	if infile.endswith(".gz"):
 		with gzip.open(infile, 'rt') as f:
@@ -140,8 +145,8 @@ def read_table(infile):
 	return outdict
 
 
-def translate_taxids(taxids_d):
-	dictionaries()
+def _translate_taxids(taxids_d):
+	_dictionaries()
 	eukaryotes = eukprot_groups
 	clade_d = {}
 	# 1 = root
@@ -240,82 +245,83 @@ def write_itol_ranges(infile, prefix, taxonomyfile):
 	Returns:	Writes an ITOL color_range file
 
 	"""
-	taxa =  ['Rhodophyta',
-			'empty',
-			'Haptista',
-			'empty',
-			'Cryptista',
-			'empty',
-			'Alveolata',
-			'Dinoflagellata',
-			'Apicomplexa',
-			'Ciliphora',
-			'empty',
-			'Rhizaria',
-			'empty',
-			'Stramenopiles',
-			'empty',
-			'Parabasalia',
-			'Preaxostyla',
-			'Fornicata',
-			'empty',
-			'Euglenozoa',
-			'empty',
-			'Streptophyta',
-			'Viridiplantae',
-			'empty',
-			'Glaucophyta',
-			'empty',
-			'Amoebozoa',
-			'Holomycota',
-			'Fungi',
-			'Metazoa',
-			'Holozoa',
-			'Choanozoa',
-			'Breviatea',
-			'Apusozoa',
-			'Opisthokonta']
-
-	bw =	[
-			'basal-euks',
-			'Jakobida',
-			'Heterolobosea',
-			'Telonemida',
-			'Tsukubamonadida',
-			'Eukaryota']
+	#this is for an experimental function -- automated color assignment from a spectral colormap
+	"""taxa =  ['Rhodophyta',
+						'empty',
+						'Haptista',
+						'empty',
+						'Cryptista',
+						'empty',
+						'Alveolata',
+						'Dinoflagellata',
+						'Apicomplexa',
+						'Ciliphora',
+						'empty',
+						'Rhizaria',
+						'empty',
+						'Stramenopiles',
+						'empty',
+						'Parabasalia',
+						'Preaxostyla',
+						'Fornicata',
+						'empty',
+						'Euglenozoa',
+						'empty',
+						'Streptophyta',
+						'Viridiplantae',
+						'empty',
+						'Glaucophyta',
+						'empty',
+						'Amoebozoa',
+						'Holomycota',
+						'Fungi',
+						'Metazoa',
+						'Holozoa',
+						'Choanozoa',
+						'Breviatea',
+						'Apusozoa',
+						'Opisthokonta']
+			
+				bw =	[
+						'basal-euks',
+						'Jakobida',
+						'Heterolobosea',
+						'Telonemida',
+						'Tsukubamonadida',
+						'Eukaryota']"""
 
 	color_map_ranges = {
 						'Alveolata': '#FCAD67',
-						'Amoebozoa': '#71DBF0',
+						'Amoebozoa': '#7AD3E5',
 						'Apicomplexa': '#FC8822',
-						'Apusozoa': '#979A9A',
-						'basal-euks': '#451741',
+						'Apusozoa': '#A9C6C6',
+						'basal-euks': '#B6BBBB',
 						'Breviatea': '#A9BFC8',
-						'Viridiplantae': '#52BE80',
+						'Viridiplantae': '#47C662',
 						'Choanozoa': ' #6A9EB4',
 						'Ciliphora': '#D4BB8D',
-						'Cryptista': '#BB408A',
+						'Cryptista': '#95507A',
 						'Dinoflagellata': '#E57D1C',
 						'Euglenozoa': '#5ADABD',
 						'Eukaryota': '#919191',
 						'Fornicata': '#19A39A',
-						'Fungi': '#4339ac',
+						'Fungi': '#68A6CF',
 						'Glaucophyta': '#d2f6b6',
-						'Haptista': '#B06EC6',
+						'Haptista': '#90669E',
 						'Heterolobosea': '#28867E',
-						'Holomycota': '#889d34',
-						'Holozoa': '#757575',
+						'Holomycota': '#87C0E6',
+						'Holozoa': '#718EB0',
 						'Jakobida': '#1D8C8A',
-						'Metazoa': '#ca79e7',
-						'Opisthokonta': '#a4e570',
-						'Parabasalia': '#37bd77',
-						'Preaxostyla': '#37bd77',
-						'Rhizaria': '#37bd77',
-						'Rhodophyta': '#37bd77',
-						'Stramenopiles': '#9cdec3',
-						'Streptophyta': '#37bd77',
-						'Telonemida': '#37bd77',
-						'Tsukubamonadida': '#37bd77'
+						'Metazoa': '#4F719A', 
+						'Opisthokonta': '#7ABCE5',
+						'Parabasalia': '#DAD3B1',
+						'Preaxostyla': '#B7AF8B',
+						'Rhizaria': '#8E7564',
+						'Rhodophyta': '#BC3241',
+						'Stramenopiles': '#B07A57',
+						'Streptophyta': '#0BA42C',
+						'Telonemida': '#D3BE65',
+						'Tsukubamonadida': '#8CEAD5'
 						}
 
 	header = "TREE_COLORS\nSEPARATOR TAB\nDATA\n"
@@ -332,8 +338,8 @@ def write_itol_ranges(infile, prefix, taxonomyfile):
 	elif os.path.isfile("{}_taxids.tsv".format(prefix)) == True:
 		taxonomyfile = "{}_taxids.tsv".format(prefix)
 	else:
-		print("Prepare *taxids.tsv first using the -w option!")
-	taxid_d = read_table(taxonomyfile)
+		print("Prepare *taxids.tsv first using the --writetaxids option!")
+	taxid_d = _read_table(taxonomyfile)
 	print("Imported taxids:", len(taxid_d.keys()))
 
 	print("Loading list of seqIDs...")
@@ -345,12 +351,20 @@ def write_itol_ranges(infile, prefix, taxonomyfile):
 			seqids = {x.split("\t")[0] for x in f}
 
 	#this should contain clade info for EukProt codes
-	clade_dict = translate_taxids(taxid_d)
+	clade_dict = _translate_taxids(taxid_d)
 	with open("{}_taxids.txt".format(prefix), "wt") as taxonfile:
 		taxonfile.write(header)
 		for seqid in seqids:
 			clade = clade_dict.get(seqid.split("_")[0], "")
 			taxonfile.write("{}\trange\t{}\t{}\n".format(seqid, color_map_ranges.get(clade, "#DCDCDC"), clade))
+	
+	#experimental automatic color assignment
+	"""color_map_automatic = _colormap(taxa, palette="Spectral")
+				for t in taxa:
+					if t == "empty":
+						continue
+					hex = color_map_automatic[t]
+					print(f"{t} {hex}")"""
 
 
 def write_taxids(infile, prefix, taxonomyfile):
@@ -367,6 +381,7 @@ def write_taxids(infile, prefix, taxonomyfile):
 		seqids = {x.name for x in SeqIO.parse(infile, "fasta")}
 	else:
 		with open(infile, "rt") as f:
+			#assuming seq name is in first column
 			seqids = {x.split("\t")[0] for x in f}
 
 	if taxonomyfile.endswith(".gz"):
@@ -400,15 +415,15 @@ def taxify_file(infile, prefix, taxonomyfile, translate=True):
 	elif os.path.isfile("{}_taxids.tsv".format(prefix)) == True:
 		taxonomyfile = "{}_taxids.tsv".format(prefix)
 	else:
-		print("Prepare *taxids.tsv first using the -w option!")
-	taxid_d = read_table(taxonomyfile)
+		print("Prepare *taxids.tsv first using the --writetaxids option!")
+	taxid_d = _read_table(taxonomyfile)
 	print("Imported taxids:", len(taxid_d.keys()))
 	suffix = infile.split(".")[-1]
 	#Taxids are in raw form - only numbers, therefore in tree and fasta files 
 	# we need to extend their names.
 	if translate:
 		outfile = infile.replace(".{}".format(suffix), ".clades.{}".format(suffix))
-		clade_d = translate_taxids(taxid_d)
+		clade_d = _translate_taxids(taxid_d)
 		with open(infile, 'rt') as f:
 			file = f.read()
 			for seqid in clade_d:
@@ -434,7 +449,7 @@ def main():
 	parser.add_argument('-t', '--taxify', help='Apply taxids in this file (fasta or tree)', default='')
 	group.add_argument('-i', '--infile', help='Infile to be used to subset taxids (fasta or list)', default='')
 	group.add_argument('-p', '--prefix', help='Infile prefix', default='')
-	parser.add_argument('--taxonomy', help='File containing custom taxonomy', default='')
+	parser.add_argument('--taxonomy', help='TSV file containing custom taxonomy', default='')
 	parser.add_argument('--translate', help='Translate taxids into clades', action='store_true')
 	parser.add_argument('--writetaxids', help='Write a file of taxids', action='store_true')
 	parser.add_argument('-w', '--writeitol', help='Write ITOL color_ranges', action='store_true')
@@ -454,7 +469,7 @@ def main():
 	#	os.system('zgrep "{0}" prefix.tsv.gz > {0}.list'.format(prefix))
 
 	if args.taxonomy == "":
-		taxonomyfile = "{}/EukProt_included_data_sets.v02.taxids.tsv".format(find_homedir("genomes"))
+		taxonomyfile = "{}/EukProt_included_data_sets.v02.taxids.tsv".format(_find_homedir("genomes"))
 	else:
 		taxonomyfile = args.taxonomy
 

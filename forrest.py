@@ -51,6 +51,24 @@ def find_iqtree_model(filename):
 	return iqmodel
 
 
+def find_fasttree_model(filename):
+	"""Find model used by FastTree"""
+
+	#modelpattern = r'Best-fit model: ([+\w]+)'
+	modelpattern = r'ML Model: ([*+\w]+)'
+	#command = os.popen("grep 'Best-fit model:' {}".format(filename)).read()
+	command = os.popen("grep -iF 'ML Model:' {}".format(filename)).read()
+	command = command.split("\n")[0]
+	model = re.search(modelpattern, command)
+	if model:
+		ftmodel = model.group(1)
+		#print("IQTREE model:", iqmodel)
+	else:
+		ftmodel = "N/D"
+		print("failed to extract model from", filename, command)
+	return ftmodel
+
+
 def iqtree_convergence_error(filename):
 	"""Make sure IQTREE run has converged"""
 
@@ -459,9 +477,9 @@ for file in infilelist:
 				command = "{0} {3} --thread {2} safe-{1}.fasta > safe-{1}.aln 2>{1}_mafft.log".format(args.aligner, filename, args.maxcores, alignerparams)
 		elif "prank" in args.aligner:
 			if args.alignerparams == "":
-				command = "./{0} -iterate=5 -d=safe-{1}.fasta -o=safe-{1}.aln 2>{1}_prank.log".format(args.aligner, filename, args.maxcores)
+				command = "./{0} -iterate=5 -d=safe-{1}.fasta -o=safe-{1} 2>{1}_prank.log && mv safe-{1}.best.fas safe-{1}.aln".format(args.aligner, filename, args.maxcores)
 			else:
-				command = "./{0} {3} -d=safe-{1}.fasta -o=safe-{1}.aln 2>{1}_prank.log".format(args.aligner, filename, args.maxcores, alignerparams)
+				command = "./{0} {3} -d=safe-{1}.fasta -o=safe-{1} 2>{1}_prank.log && mv safe-{1}.best.fas safe-{1}.aln".format(args.aligner, filename, args.maxcores, alignerparams)
 		print("FORREST: Calling aligner\n" + command)
 		os.system(command)
 
@@ -622,7 +640,7 @@ for file in infilelist:
 					if args.ufbootstrap:
 						treecommand += " -bb 1000"
 					elif args.bootstrap: #will not calculate bootstrap if UFBoot requested
-						treecommand += " -b 1000"
+						treecommand += " -b 100"
 					if args.shalrt:
 						treecommand += " -alrt 1000"
 				#some parameters got renamed from version 2.0!
@@ -670,7 +688,7 @@ for file in infilelist:
 				#check if iqtree present
 				if is_tool("FastTree"):
 					program = "FastTree"
-				elif is_tool("fasttree"): #multicore version <= 1.5.X
+				elif is_tool("fasttree"):
 					program = "fasttree"
 				else:
 					quit("FORREST: FATAL ERROR! FastTree not found")
@@ -686,6 +704,8 @@ for file in infilelist:
 				if args.treeparams == "":
 					treecommand += " trimfilt-{0}.fasta > trimfilt-{0}.fasta.treefile".format(filename) #GTR20 only for very large datasets
 				else:
+					print(treeparams)
+					#edit treeparams to ignore invalid parameters
 					treecommand += " {2} trimfilt-{0}.fasta > trimfilt-{0}.fasta.treefile".format(filename, args.maxcores, treeparams)
 				logtofile = "2>final-{0}_fasttree.log".format(filename)
 				print("FORREST: Calling software for fast tree inference:\n{} {} {}".format(program, treecommand, logtofile))
@@ -697,19 +717,23 @@ for file in infilelist:
 			print("FORREST: ERROR assigning software for tree inference!")
 			continue
 
-	if iqtree_convergence_error("final-{}_iqtree.log".format(filename)):
-		print("tree inference extended by 4000 generations:")
-		print("{} {} -redo -nm 5000 1>final2-{}_iqtree.log".format(program, treecommand, filename))
-		os.system("{} {} -redo -nm 5000 1>final2-{}_iqtree.log".format(program, treecommand, filename))
-		if iqtree_convergence_error("final2-{}_iqtree.log".format(filename)):
-			print("WARNING: still not converged, aborting...")
+	if args.treemaker in ["iqtree-omp", "iqtree"]:
+		if iqtree_convergence_error("final-{}_iqtree.log".format(filename)):
+			print("tree inference extended by 4000 generations:")
+			print("{} {} -redo -nm 5000 1>final2-{}_iqtree.log".format(program, treecommand, filename))
+			os.system("{} {} -redo -nm 5000 1>final2-{}_iqtree.log".format(program, treecommand, filename))
+			if iqtree_convergence_error("final2-{}_iqtree.log".format(filename)):
+				print("WARNING: still not converged, aborting...")
 
 	if "-m " in treeparams:
-		if args.no_guide:
-			model = find_iqtree_model("trimfilt-{0}.fasta.iqtree".format(filename))
-		else:
-			model = find_iqtree_model("guide-{0}.iqtree".format(filename))
-			model += ">PMSF"
+		if args.treemaker in ["iqtree-omp", "iqtree"]:
+			if args.no_guide:
+				model = find_iqtree_model("trimfilt-{0}.fasta.iqtree".format(filename))
+			else:
+				model = find_iqtree_model("guide-{0}.iqtree".format(filename))
+				model += ">PMSF"
+		elif args.treemaker in ["fasttree", "FastTree"]:
+			model = find_fasttree_model("trimfilt-{0}.fasta.treefile".format(filename))
 	elif args.treeparams == "":
 		#these are defaults
 		if args.no_guide:

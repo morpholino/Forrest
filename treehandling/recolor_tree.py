@@ -4,10 +4,12 @@ from Bio import SeqIO
 # https://github.com/morpholino
 
 
-def makeset(labelfiles, labeltype, len_threshold=200):
+def _makeset(labelfiles, labeltypes, len_threshold=200, trim_names=False):
+	# Returns a set of seqIDs extracted from labelfiles
+	# For gff files, returns any sequences having an annotation longer than len_threshold
 	labelset = []
 
-	labelfile = [x for x in labelfiles if labeltype in x]
+	labelfile = [x for x in labelfiles if any(l in x for l in labeltypes)]
 	if len(labelfile) > 0:
 		labelfile = labelfile[0]
 	else:
@@ -16,6 +18,9 @@ def makeset(labelfiles, labeltype, len_threshold=200):
 	if os.path.exists(labelfile):
 		if labelfile.split('.')[-1] in ('fasta', 'fas', 'fst', 'fa', 'faa', 'ali'):
 			labelset = [x.name for x in SeqIO.parse(labelfile, 'fasta')]
+			if trim_names:
+				print("Trimming seqnames to remove __xx-xx")
+				labelset = [x.split("__")[0] for x in labelset]
 		elif labelfile.split('.')[-1] in ('tsv', 'txt'):
 			with open(labelfile, 'rt') as file:
 				labelset = {x.strip().split('\t')[0] for x in file.readlines()}
@@ -44,9 +49,11 @@ def makeset(labelfiles, labeltype, len_threshold=200):
 
 
 def recolor_tree(intree, labelset, color):
+	# Returns a nex tree as string, with tip labels marked with color
 	treeidx = intree.find('begin trees;')
 	#print(treeidx)
 	if treeidx == -1:
+		os.system("open {}".format(intree))
 		quit("Tree not in nexus format!")
 	taxablock = intree[:treeidx]
 	treeblock = intree[treeidx:]
@@ -66,15 +73,26 @@ def recolor_tree(intree, labelset, color):
 		raise ValueError("Color not in base colors!")
 	color_re = r'\[&!color=#\w+\]'
 	for item in labelset:
-		newitem = "{}{}".format(item, basecolors[color])
 		itemidx = taxablock.find(item)
+		if itemidx == -1:
+			print("Label not found!", item)
+			continue
+
+		if taxablock[itemidx+len(item)] == "'":
+			item = item + "'"
+		if taxablock[itemidx+len(item)] not in ("\n", "["):
+			#but shorter IDs usually come first in nexus!
+			print("imperfect match", item, itemidx)
+			itemidx = taxablock.find(item, itemidx+1)
+		newitem = "{}{}".format(item, basecolors[color])
 		if itemidx > 0:
-			length = len(item) + 17
+			length = len(item) + 17 #the length of a color annotation
 			extendeditem = taxablock[itemidx:itemidx+length]
 			if re.search(color_re, extendeditem):
 				taxablock = taxablock.replace(extendeditem, newitem)
 			else:
-				taxablock = taxablock.replace(item, newitem)
+				#prevent shorter ID from replacing longer IDs!
+				taxablock = taxablock.replace("{}\n".format(item), "{}\n".format(newitem))
 		else:
 			print("Label not found!", item)
 			continue
@@ -137,10 +155,10 @@ def main():
 		#find all good, bad and unknown files with this prefix!
 		labelfiles = [x for x in os.listdir('.') if x.startswith(prefix)]
 
-	goodset = makeset(labelfiles, "good")
-	badset = makeset(labelfiles, "bad")
+	goodset = _makeset(labelfiles, ["good", "trimmed"], trim_names=True)
+	badset = _makeset(labelfiles, ["bad", "failed"])
 	badset = [x for x in badset if x not in goodset]
-	unknownset = makeset(labelfiles, "unknown")
+	unknownset = _makeset(labelfiles, ["unknown"], trim_names=True)
 
 	if all(len(x) == 0 for x in [goodset, badset, unknownset]):
 		quit("No filter files found among: {}! Quitting...\n".format(", ".join(labelfiles)))
